@@ -39,24 +39,40 @@ class TweetSweeper:
         t = self.get_client()
         for query in self.terms:
             tweets = t.search.tweets(q=query, result_type='recent', count=100)
+            min_id = self.process_tweets(tweets)
+            prev_min_id = min_id
+            while True:
+                tweets = t.search.tweets(q=query, result_type='recent',
+                                        count=100, max_id=min_id)
+                min_id = self.process_tweets(tweets)
+                if min_id < prev_min_id:
+                    prev_min_id = min_id
+                else:
+                    break
 
-            import simplejson as json
-            import codecs
-            for tweet in tweets['statuses']:
-                if self.verbose:
-                    print("Tweeet: id : %s at %s by name %s text: %s"
-                          %(tweet['id'],tweet['created_at'],
-                            tweet['user']['screen_name'],
-                            tweet['text']))
-                tweet_file = os.path.join(self.output_dir,
-                                          "%s.json"%(tweet['id']))
-                if self.verbose:
-                    print("save to %s" % tweet_file)
 
-                with codecs.open(tweet_file, 'w', encoding="utf-8") as out:
-                    out.write(json.dumps(tweet, ensure_ascii=False))
-                    out.flush()
+    def process_tweets(self, tweets):
+        import simplejson as json
+        import codecs
+        min_id = None
+        for tweet in tweets['statuses']:
+            if min_id is None or tweet['id'] < min_id:
+                min_id = tweet['id']
+            if self.verbose:
+                print("Tweeet: id : %s at %s by name %s text: %s"
+                      %(tweet['id'],tweet['created_at'],
+                        tweet['user']['screen_name'],
+                        tweet['text']))
+            tweet_file = os.path.join(self.output_dir,
+                                      "%s.json"%(tweet['id']))
+            if self.verbose:
+                print("save to %s" % tweet_file)
 
+            with codecs.open(tweet_file, 'w', encoding="utf-8") as out:
+                out.write(json.dumps(tweet, ensure_ascii=False))
+                out.flush()
+        return min_id
+        
 def parse_args():
     from optparse import OptionParser
     basedir = os.path.realpath(os.path.dirname(sys.argv[0]))
